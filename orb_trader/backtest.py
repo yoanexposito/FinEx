@@ -12,6 +12,41 @@ from orb_trader.risk import RiskManager
 from orb_trader.strategy import OpeningRangeBreakoutStrategy
 
 
+def _compute_profit_factor(trades: List[Trade]) -> float:
+    gross_profit = sum(t.net_pnl for t in trades if t.net_pnl > 0)
+    gross_loss = abs(sum(t.net_pnl for t in trades if t.net_pnl < 0))
+    return gross_profit / gross_loss if gross_loss > 0 else float("inf")
+
+
+def _compute_streaks(trades: List[Trade]) -> Tuple[int, int]:
+    max_wins = max_losses = cur_wins = cur_losses = 0
+    for t in trades:
+        if t.net_pnl > 0:
+            cur_wins += 1
+            cur_losses = 0
+        else:
+            cur_losses += 1
+            cur_wins = 0
+        max_wins = max(max_wins, cur_wins)
+        max_losses = max(max_losses, cur_losses)
+    return max_wins, max_losses
+
+
+def _compute_monthly_returns(
+    snapshots: List[Tuple[datetime, float]], initial_equity: float
+) -> Dict[str, float]:
+    monthly: Dict[str, float] = {}
+    for ts, eq in snapshots:
+        monthly[ts.strftime("%Y-%m")] = eq
+    prev_eq = initial_equity
+    result: Dict[str, float] = {}
+    for key in sorted(monthly):
+        end_eq = monthly[key]
+        result[key] = (end_eq - prev_eq) / max(prev_eq, 1e-9) * 100
+        prev_eq = end_eq
+    return result
+
+
 def _compute_sharpe(snapshots: List[Tuple[datetime, float]], initial_equity: float) -> float:
     if len(snapshots) < 2:
         return 0.0
@@ -79,10 +114,19 @@ class BacktestResult:
     total_return_pct: float
     max_drawdown_pct: float
     sharpe_ratio: float
+    profit_factor: float
+    avg_win: float
+    avg_loss: float
+    best_trade: float
+    worst_trade: float
+    max_consecutive_wins: int
+    max_consecutive_losses: int
+    avg_hold_minutes: float
     trades: List[Trade]
     win_rate_pct: float
     avg_trade_pnl: float
     equity_curve: List[Tuple[datetime, float]] = field(default_factory=list)
+    monthly_returns: Dict[str, float] = field(default_factory=dict)
 
 
 class Backtester:
@@ -240,10 +284,15 @@ class Backtester:
             )
 
         wins = [t for t in trades if t.net_pnl > 0]
+        losses = [t for t in trades if t.net_pnl <= 0]
         win_rate = (len(wins) / len(trades) * 100.0) if trades else 0.0
         avg_trade = mean([t.net_pnl for t in trades]) if trades else 0.0
         total_return_pct = ((equity / initial_equity) - 1.0) * 100.0
         sharpe = _compute_sharpe(equity_snapshots, initial_equity)
+        max_wins, max_losses = _compute_streaks(trades)
+        hold_minutes = [
+            (t.exit_time - t.entry_time).total_seconds() / 60 for t in trades
+        ]
 
         return BacktestResult(
             initial_equity=initial_equity,
@@ -251,8 +300,17 @@ class Backtester:
             total_return_pct=total_return_pct,
             max_drawdown_pct=max_dd * 100.0,
             sharpe_ratio=sharpe,
+            profit_factor=_compute_profit_factor(trades),
+            avg_win=mean([t.net_pnl for t in wins]) if wins else 0.0,
+            avg_loss=mean([t.net_pnl for t in losses]) if losses else 0.0,
+            best_trade=max((t.net_pnl for t in trades), default=0.0),
+            worst_trade=min((t.net_pnl for t in trades), default=0.0),
+            max_consecutive_wins=max_wins,
+            max_consecutive_losses=max_losses,
+            avg_hold_minutes=mean(hold_minutes) if hold_minutes else 0.0,
             trades=trades,
             win_rate_pct=win_rate,
             avg_trade_pnl=avg_trade,
             equity_curve=equity_snapshots,
+            monthly_returns=_compute_monthly_returns(equity_snapshots, initial_equity),
         )
