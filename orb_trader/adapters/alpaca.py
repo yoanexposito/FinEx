@@ -34,7 +34,7 @@ def fetch_historical_bars(
     )
     response = client.get_stock_bars(request)
     bars: List[Bar] = []
-    for symbol, bar_list in response.items():
+    for symbol, bar_list in response.data.items():
         for bar in bar_list:
             bars.append(Bar(
                 symbol=symbol,
