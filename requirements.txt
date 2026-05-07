@@ -1,2 +1,2 @@
-# Optional convenience dependency for future data analysis.
+alpaca-py>=0.13.0
 pandas>=2.0.0

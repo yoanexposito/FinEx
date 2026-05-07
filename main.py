@@ -1,11 +1,12 @@
 import argparse
 import logging
+import os
 from datetime import time
 from pathlib import Path
 
+from orb_trader.adapters.alpaca import AlpacaBroker, AlpacaMarketDataProvider
 from orb_trader.backtest import Backtester, load_bars_from_csv
 from orb_trader.config import EngineConfig
-from orb_trader.interfaces import PlaceholderBroker, PlaceholderMarketDataProvider
 from orb_trader.live import LiveTrader
 
 
@@ -46,7 +47,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     live = subparsers.add_parser("live", parents=[common], help="Run live loop")
     live.add_argument("--symbols", type=str, default="SPY")
-    live.add_argument("--poll-seconds", type=float, default=5.0)
+    live.add_argument("--poll-seconds", type=float, default=60.0)
+    live.add_argument(
+        "--paper",
+        action="store_true",
+        default=True,
+        dest="paper",
+        help="Use Alpaca paper trading endpoint (default: on)",
+    )
+    live.add_argument(
+        "--no-paper",
+        action="store_false",
+        dest="paper",
+        help="Use Alpaca live trading endpoint (real money)",
+    )
 
     return parser
 
@@ -84,14 +98,28 @@ def run_backtest(args: argparse.Namespace) -> None:
     print(f"Avg trade PnL:  ${result.avg_trade_pnl:,.2f}")
 
 
+def _load_alpaca_credentials() -> tuple[str, str]:
+    api_key = os.environ.get("ALPACA_API_KEY", "")
+    secret_key = os.environ.get("ALPACA_SECRET_KEY", "")
+    missing = [name for name, val in (("ALPACA_API_KEY", api_key), ("ALPACA_SECRET_KEY", secret_key)) if not val]
+    if missing:
+        raise EnvironmentError(
+            f"Missing required environment variables: {', '.join(missing)}. "
+            "Set them in your shell or a .env file before running live mode."
+        )
+    return api_key, secret_key
+
+
 def run_live(args: argparse.Namespace) -> None:
     config = build_config(args)
     symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
     if not symbols:
         raise ValueError("At least one symbol is required.")
 
-    market_data = PlaceholderMarketDataProvider()
-    broker = PlaceholderBroker()
+    api_key, secret_key = _load_alpaca_credentials()
+    market_data = AlpacaMarketDataProvider(api_key=api_key, secret_key=secret_key)
+    broker = AlpacaBroker(api_key=api_key, secret_key=secret_key, paper=args.paper)
+
     trader = LiveTrader(
         symbols=symbols,
         config=config,
