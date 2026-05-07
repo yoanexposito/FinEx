@@ -1,7 +1,8 @@
 import logging
+import threading
 import time
 from dataclasses import dataclass
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 from orb_trader.config import EngineConfig
 from orb_trader.interfaces import Broker, MarketDataProvider
@@ -99,13 +100,16 @@ class LiveTrader:
             f"{target:.4f}" if target is not None else "None",
         )
 
-    def run_forever(self) -> None:
+    def run_forever(self, stop_event: Optional[threading.Event] = None) -> None:
         starting_equity = self.broker.get_equity()
         state = LiveState(day_start_equity=starting_equity, positions={})
         LOGGER.info("Live trader started with equity=%.2f", starting_equity)
 
-        while True:
-            bars: Iterable[Bar] = self.market_data.get_latest_bars(self.symbols)
-            for bar in bars:
-                self._process_bar(bar, state)
+        while stop_event is None or not stop_event.is_set():
+            try:
+                bars: Iterable[Bar] = self.market_data.get_latest_bars(self.symbols)
+                for bar in bars:
+                    self._process_bar(bar, state)
+            except Exception:
+                LOGGER.exception("Error in live trader poll cycle — continuing")
             time.sleep(self.poll_seconds)
