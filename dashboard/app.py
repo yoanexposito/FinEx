@@ -28,6 +28,44 @@ _SAMPLE_CSV = Path(__file__).parent.parent / "data" / "sample.csv"
 _GREEN = "#00C805"
 _RED = "#FF3B30"
 
+# ── Ticker catalog ────────────────────────────────────────────────────────────
+# Format: (TICKER, Company Name)
+_TICKER_CATALOG: dict[str, list[tuple[str, str]]] = {
+    "ETFs": [
+        ("SPY", "S&P 500"), ("QQQ", "Nasdaq 100"), ("IWM", "Russell 2000"),
+        ("DIA", "Dow Jones"), ("VTI", "Total US Market"), ("GLD", "Gold"),
+        ("TLT", "20yr Treasury"), ("XLF", "Financials"), ("XLK", "Technology"),
+        ("XLE", "Energy"), ("XLV", "Healthcare"), ("XLI", "Industrials"),
+    ],
+    "Tech": [
+        ("AAPL", "Apple"), ("MSFT", "Microsoft"), ("NVDA", "Nvidia"),
+        ("GOOGL", "Alphabet"), ("META", "Meta"), ("AMZN", "Amazon"),
+        ("TSLA", "Tesla"), ("AMD", "AMD"), ("INTC", "Intel"),
+        ("CRM", "Salesforce"), ("ORCL", "Oracle"), ("ADBE", "Adobe"),
+        ("NFLX", "Netflix"), ("UBER", "Uber"), ("SHOP", "Shopify"),
+    ],
+    "Finance": [
+        ("JPM", "JPMorgan"), ("BAC", "Bank of America"), ("GS", "Goldman Sachs"),
+        ("MS", "Morgan Stanley"), ("WFC", "Wells Fargo"), ("C", "Citigroup"),
+        ("V", "Visa"), ("MA", "Mastercard"), ("AXP", "American Express"),
+        ("BRK.B", "Berkshire Hathaway"),
+    ],
+    "Healthcare": [
+        ("JNJ", "Johnson & Johnson"), ("UNH", "UnitedHealth"), ("PFE", "Pfizer"),
+        ("MRNA", "Moderna"), ("ABBV", "AbbVie"), ("LLY", "Eli Lilly"),
+        ("BMY", "Bristol-Myers"), ("AMGN", "Amgen"),
+    ],
+    "Energy": [
+        ("XOM", "ExxonMobil"), ("CVX", "Chevron"), ("COP", "ConocoPhillips"),
+        ("SLB", "Schlumberger"), ("MPC", "Marathon Petroleum"), ("OXY", "Occidental"),
+    ],
+    "Consumer": [
+        ("HD", "Home Depot"), ("NKE", "Nike"), ("SBUX", "Starbucks"),
+        ("MCD", "McDonald's"), ("WMT", "Walmart"), ("COST", "Costco"),
+        ("TGT", "Target"), ("LOW", "Lowe's"),
+    ],
+}
+
 
 # ── Chart builders ────────────────────────────────────────────────────────────
 
@@ -82,6 +120,37 @@ def _drawdown_chart(result: BacktestResult) -> go.Figure:
         height=260,
         margin=dict(l=0, r=0, t=36, b=0),
         hovermode="x unified",
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+    )
+    return fig
+
+
+def _monthly_heatmap(monthly_returns: dict) -> go.Figure:
+    import calendar
+    year_data: dict[int, dict[int, float]] = {}
+    for key, ret in monthly_returns.items():
+        y, m = int(key[:4]), int(key[5:])
+        year_data.setdefault(y, {})[m] = ret
+    years = sorted(year_data)
+    month_names = [calendar.month_abbr[m] for m in range(1, 13)]
+    z = [[year_data[y].get(m) for m in range(1, 13)] for y in years]
+    text = [[f"{v:.1f}%" if v is not None else "" for v in row] for row in z]
+    fig = go.Figure(go.Heatmap(
+        z=z,
+        x=month_names,
+        y=[str(y) for y in years],
+        colorscale=[[0, _RED], [0.5, "#f5f5f5"], [1, _GREEN]],
+        zmid=0,
+        text=text,
+        texttemplate="%{text}",
+        showscale=True,
+        hovertemplate="%{y} %{x}: <b>%{z:.2f}%</b><extra></extra>",
+    ))
+    fig.update_layout(
+        title="Monthly Returns (%)",
+        height=max(220, 80 * len(years) + 120),
+        margin=dict(l=0, r=0, t=36, b=0),
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
     )
@@ -300,7 +369,14 @@ def main() -> None:
             "1 hour": TimeFrame(1,  TimeFrameUnit.Hour),
         }
 
-        ctrl_col, _ = st.columns([1, 2])
+        # Build flat ticker options for multiselect: "AAPL — Apple"
+        _all_ticker_opts = [
+            f"{sym} — {name}"
+            for tickers in _TICKER_CATALOG.values()
+            for sym, name in tickers
+        ]
+
+        ctrl_col, ticker_col = st.columns([1, 1])
         with ctrl_col:
             source = st.radio(
                 "Data Source",
@@ -309,7 +385,7 @@ def main() -> None:
             )
 
             uploaded_file = None
-            alpaca_symbols = []
+            alpaca_symbols: list[str] = []
             alpaca_start = alpaca_end = None
             alpaca_tf_label = "1 min"
 
@@ -318,14 +394,25 @@ def main() -> None:
             else:
                 if not creds_present:
                     st.warning("Connect Alpaca in the sidebar to fetch historical data.")
-                alpaca_symbols_raw = st.text_input("Symbols", "SPY,QQQ")
-                alpaca_symbols = [s.strip().upper() for s in alpaca_symbols_raw.split(",") if s.strip()]
+
+                # Symbols driven by ticker browser selection or manual entry
+                browser_selection = st.session_state.get("ticker_browser_selection", [])
+                browser_syms = [s.split(" — ")[0] for s in browser_selection]
+
+                manual_raw = st.text_input(
+                    "Symbols (or pick from browser →)",
+                    value=", ".join(browser_syms) if browser_syms else "SPY, QQQ",
+                    key="symbol_input",
+                )
+                alpaca_symbols = [s.strip().upper() for s in manual_raw.split(",") if s.strip()]
+
                 col_start, col_end = st.columns(2)
                 with col_start:
                     alpaca_start = st.date_input("Start Date", value=date.today() - timedelta(days=90))
                 with col_end:
                     alpaca_end = st.date_input("End Date", value=date.today() - timedelta(days=1))
                 alpaca_tf_label = st.selectbox("Bar Timeframe", list(_TIMEFRAME_OPTIONS.keys()))
+                st.caption("💡 Tip: 1–5 min bars work best for ORB. Longer ranges = fewer signals.")
 
                 if alpaca_start and alpaca_end and alpaca_start >= alpaca_end:
                     st.error("Start date must be before end date.")
@@ -334,6 +421,28 @@ def main() -> None:
                 "Initial Equity ($)", 10_000, 10_000_000, 100_000, step=10_000
             )
             run_bt = st.button("▶ Run Backtest", type="primary", use_container_width=True)
+
+        with ticker_col:
+            st.markdown("#### 🔍 Ticker Browser")
+            st.caption("Search by company name or ticker. Click to populate Symbols field.")
+            sector_filter = st.selectbox(
+                "Sector", ["All"] + list(_TICKER_CATALOG.keys()), label_visibility="collapsed"
+            )
+            filtered_opts = (
+                _all_ticker_opts if sector_filter == "All"
+                else [f"{sym} — {name}" for sym, name in _TICKER_CATALOG[sector_filter]]
+            )
+            selected = st.multiselect(
+                "Search tickers",
+                options=filtered_opts,
+                default=st.session_state.get("ticker_browser_selection", []),
+                placeholder="Type a name or ticker…",
+                label_visibility="collapsed",
+                key="ticker_browser_selection",
+            )
+            if selected:
+                syms = [s.split(" — ")[0] for s in selected]
+                st.info(f"Selected: **{', '.join(syms)}**")
 
         if run_bt:
             try:
@@ -378,15 +487,24 @@ def main() -> None:
         if result:
             st.divider()
 
-            # KPI metrics
+            # Row 1: return overview
             m1, m2, m3, m4, m5, m6 = st.columns(6)
             pnl = result.final_equity - result.initial_equity
             m1.metric("Total Return", f"{result.total_return_pct:.2f}%", delta=f"${pnl:,.0f}")
-            m2.metric("Final Equity", f"${result.final_equity:,.0f}")
-            m3.metric("Max Drawdown", f"{result.max_drawdown_pct:.2f}%")
-            m4.metric("Sharpe Ratio", f"{result.sharpe_ratio:.2f}")
+            m2.metric("Max Drawdown", f"{result.max_drawdown_pct:.2f}%")
+            m3.metric("Sharpe Ratio", f"{result.sharpe_ratio:.2f}")
+            m4.metric("Profit Factor", f"{result.profit_factor:.2f}" if result.profit_factor != float('inf') else "∞")
             m5.metric("Win Rate", f"{result.win_rate_pct:.1f}%")
             m6.metric("Total Trades", len(result.trades))
+
+            # Row 2: trade-level breakdown
+            n1, n2, n3, n4, n5, n6 = st.columns(6)
+            n1.metric("Avg Win", f"${result.avg_win:,.0f}")
+            n2.metric("Avg Loss", f"${result.avg_loss:,.0f}")
+            n3.metric("Best Trade", f"${result.best_trade:,.0f}")
+            n4.metric("Worst Trade", f"${result.worst_trade:,.0f}")
+            n5.metric("Max Win Streak", result.max_consecutive_wins)
+            n6.metric("Max Loss Streak", result.max_consecutive_losses)
 
             st.plotly_chart(_equity_chart(result), use_container_width=True)
 
@@ -395,6 +513,9 @@ def main() -> None:
                 st.plotly_chart(_drawdown_chart(result), use_container_width=True)
             with pnl_col:
                 st.plotly_chart(_pnl_bar_chart(result), use_container_width=True)
+
+            if result.monthly_returns:
+                st.plotly_chart(_monthly_heatmap(result.monthly_returns), use_container_width=True)
 
             with st.expander("📋 Trade Log", expanded=False):
                 trade_df = pd.DataFrame([{
