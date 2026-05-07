@@ -1,8 +1,10 @@
 import logging
+from datetime import datetime
 from typing import Iterable, List
 
 from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockLatestBarRequest
+from alpaca.data.requests import StockBarsRequest, StockLatestBarRequest
+from alpaca.data.timeframe import TimeFrame
 from alpaca.trading.client import TradingClient
 from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.trading.requests import MarketOrderRequest
@@ -11,6 +13,41 @@ from orb_trader.interfaces import Broker, MarketDataProvider
 from orb_trader.models import Bar, Position, Side
 
 LOGGER = logging.getLogger(__name__)
+
+
+def fetch_historical_bars(
+    api_key: str,
+    secret_key: str,
+    symbols: List[str],
+    start: datetime,
+    end: datetime,
+    timeframe: TimeFrame,
+) -> List[Bar]:
+    """Fetch split/dividend-adjusted historical bars from Alpaca."""
+    client = StockHistoricalDataClient(api_key, secret_key)
+    request = StockBarsRequest(
+        symbol_or_symbols=symbols,
+        timeframe=timeframe,
+        start=start,
+        end=end,
+        adjustment="all",
+    )
+    response = client.get_stock_bars(request)
+    bars: List[Bar] = []
+    for symbol, bar_list in response.items():
+        for bar in bar_list:
+            bars.append(Bar(
+                symbol=symbol,
+                timestamp=bar.timestamp,
+                open=float(bar.open),
+                high=float(bar.high),
+                low=float(bar.low),
+                close=float(bar.close),
+                volume=float(bar.volume),
+            ))
+    bars.sort(key=lambda b: (b.timestamp, b.symbol))
+    LOGGER.info("Fetched %d historical bars for %s", len(bars), symbols)
+    return bars
 
 
 class AlpacaMarketDataProvider(MarketDataProvider):
