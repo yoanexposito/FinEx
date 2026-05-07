@@ -1,14 +1,33 @@
 import csv
-from dataclasses import dataclass
+import math
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
-from statistics import mean
-from typing import Dict, Iterable, List, Optional
+from statistics import mean, stdev
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from orb_trader.config import EngineConfig
 from orb_trader.models import Bar, Position, Side, Trade
 from orb_trader.risk import RiskManager
 from orb_trader.strategy import OpeningRangeBreakoutStrategy
+
+
+def _compute_sharpe(snapshots: List[Tuple[datetime, float]], initial_equity: float) -> float:
+    if len(snapshots) < 2:
+        return 0.0
+    daily: Dict[date, float] = {}
+    for ts, eq in snapshots:
+        daily[ts.date()] = eq
+    sorted_eq = [initial_equity] + [daily[d] for d in sorted(daily)]
+    returns = [
+        (sorted_eq[i] - sorted_eq[i - 1]) / max(sorted_eq[i - 1], 1e-9)
+        for i in range(1, len(sorted_eq))
+    ]
+    if len(returns) < 2:
+        return 0.0
+    mu = mean(returns)
+    sigma = stdev(returns)
+    return (mu / sigma) * math.sqrt(252) if sigma > 0 else 0.0
 
 
 def _apply_slippage(price: float, side: Side, slippage_bps: float, is_entry: bool) -> float:
@@ -59,9 +78,11 @@ class BacktestResult:
     final_equity: float
     total_return_pct: float
     max_drawdown_pct: float
+    sharpe_ratio: float
     trades: List[Trade]
     win_rate_pct: float
     avg_trade_pnl: float
+    equity_curve: List[Tuple[datetime, float]] = field(default_factory=list)
 
 
 class Backtester:
@@ -80,6 +101,9 @@ class Backtester:
         open_positions: Dict[str, Position] = {}
         trades: List[Trade] = []
         day_start_equity: Dict[date, float] = {}
+        equity_snapshots: List[Tuple[datetime, float]] = [
+            (bars[0].timestamp, initial_equity)
+        ] if bars else []
 
         for bar in bars:
             last_bar_by_symbol[bar.symbol] = bar
@@ -133,6 +157,7 @@ class Backtester:
                         )
                     )
                     del open_positions[bar.symbol]
+                    equity_snapshots.append((bar.timestamp, equity))
                     peak_equity = max(peak_equity, equity)
                     dd = (peak_equity - equity) / max(peak_equity, 1e-9)
                     max_dd = max(max_dd, dd)
@@ -198,6 +223,7 @@ class Backtester:
             )
             net_pnl = gross_pnl - fees
             equity += net_pnl
+            equity_snapshots.append((last_bar.timestamp, equity))
             trades.append(
                 Trade(
                     symbol=position.symbol,
@@ -217,13 +243,16 @@ class Backtester:
         win_rate = (len(wins) / len(trades) * 100.0) if trades else 0.0
         avg_trade = mean([t.net_pnl for t in trades]) if trades else 0.0
         total_return_pct = ((equity / initial_equity) - 1.0) * 100.0
+        sharpe = _compute_sharpe(equity_snapshots, initial_equity)
 
         return BacktestResult(
             initial_equity=initial_equity,
             final_equity=equity,
             total_return_pct=total_return_pct,
             max_drawdown_pct=max_dd * 100.0,
+            sharpe_ratio=sharpe,
             trades=trades,
             win_rate_pct=win_rate,
             avg_trade_pnl=avg_trade,
+            equity_curve=equity_snapshots,
         )
