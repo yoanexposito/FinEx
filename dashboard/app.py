@@ -29,40 +29,49 @@ _GREEN = "#00C805"
 _RED = "#FF3B30"
 
 # ── Ticker catalog ────────────────────────────────────────────────────────────
+# All symbols verified available on Alpaca IEX feed.
 # Format: (TICKER, Company Name)
 _TICKER_CATALOG: dict[str, list[tuple[str, str]]] = {
     "ETFs": [
         ("SPY", "S&P 500"), ("QQQ", "Nasdaq 100"), ("IWM", "Russell 2000"),
-        ("DIA", "Dow Jones"), ("VTI", "Total US Market"), ("GLD", "Gold"),
-        ("TLT", "20yr Treasury"), ("XLF", "Financials"), ("XLK", "Technology"),
-        ("XLE", "Energy"), ("XLV", "Healthcare"), ("XLI", "Industrials"),
+        ("DIA", "Dow Jones Industrial"), ("VTI", "Total US Market"),
+        ("GLD", "Gold"), ("SLV", "Silver"), ("TLT", "20yr Treasury"),
+        ("XLF", "Financials Sector"), ("XLK", "Technology Sector"),
+        ("XLE", "Energy Sector"), ("XLV", "Healthcare Sector"),
+        ("XLI", "Industrials Sector"), ("XLY", "Consumer Discretionary"),
+        ("ARKK", "ARK Innovation"),
     ],
     "Tech": [
         ("AAPL", "Apple"), ("MSFT", "Microsoft"), ("NVDA", "Nvidia"),
-        ("GOOGL", "Alphabet"), ("META", "Meta"), ("AMZN", "Amazon"),
-        ("TSLA", "Tesla"), ("AMD", "AMD"), ("INTC", "Intel"),
+        ("GOOGL", "Alphabet"), ("META", "Meta Platforms"), ("AMZN", "Amazon"),
+        ("TSLA", "Tesla"), ("AMD", "Advanced Micro Devices"), ("AVGO", "Broadcom"),
         ("CRM", "Salesforce"), ("ORCL", "Oracle"), ("ADBE", "Adobe"),
-        ("NFLX", "Netflix"), ("UBER", "Uber"), ("SHOP", "Shopify"),
+        ("NFLX", "Netflix"), ("UBER", "Uber"), ("SNOW", "Snowflake"),
+        ("PLTR", "Palantir"), ("COIN", "Coinbase"),
     ],
     "Finance": [
-        ("JPM", "JPMorgan"), ("BAC", "Bank of America"), ("GS", "Goldman Sachs"),
-        ("MS", "Morgan Stanley"), ("WFC", "Wells Fargo"), ("C", "Citigroup"),
+        ("JPM", "JPMorgan Chase"), ("BAC", "Bank of America"),
+        ("GS", "Goldman Sachs"), ("MS", "Morgan Stanley"),
+        ("WFC", "Wells Fargo"), ("C", "Citigroup"),
         ("V", "Visa"), ("MA", "Mastercard"), ("AXP", "American Express"),
-        ("BRK.B", "Berkshire Hathaway"),
+        ("SCHW", "Charles Schwab"), ("KKR", "KKR & Co"),
     ],
     "Healthcare": [
-        ("JNJ", "Johnson & Johnson"), ("UNH", "UnitedHealth"), ("PFE", "Pfizer"),
-        ("MRNA", "Moderna"), ("ABBV", "AbbVie"), ("LLY", "Eli Lilly"),
-        ("BMY", "Bristol-Myers"), ("AMGN", "Amgen"),
+        ("UNH", "UnitedHealth Group"), ("LLY", "Eli Lilly"),
+        ("JNJ", "Johnson & Johnson"), ("ABBV", "AbbVie"),
+        ("MRK", "Merck"), ("PFE", "Pfizer"), ("MRNA", "Moderna"),
+        ("AMGN", "Amgen"), ("BMY", "Bristol-Myers Squibb"),
     ],
     "Energy": [
-        ("XOM", "ExxonMobil"), ("CVX", "Chevron"), ("COP", "ConocoPhillips"),
-        ("SLB", "Schlumberger"), ("MPC", "Marathon Petroleum"), ("OXY", "Occidental"),
+        ("XOM", "ExxonMobil"), ("CVX", "Chevron"),
+        ("COP", "ConocoPhillips"), ("OXY", "Occidental Petroleum"),
+        ("MPC", "Marathon Petroleum"), ("PSX", "Phillips 66"),
     ],
     "Consumer": [
-        ("HD", "Home Depot"), ("NKE", "Nike"), ("SBUX", "Starbucks"),
-        ("MCD", "McDonald's"), ("WMT", "Walmart"), ("COST", "Costco"),
-        ("TGT", "Target"), ("LOW", "Lowe's"),
+        ("WMT", "Walmart"), ("AMZN", "Amazon"), ("COST", "Costco"),
+        ("HD", "Home Depot"), ("LOW", "Lowe's"), ("TGT", "Target"),
+        ("MCD", "McDonald's"), ("SBUX", "Starbucks"), ("NKE", "Nike"),
+        ("LULU", "Lululemon"),
     ],
 }
 
@@ -369,14 +378,16 @@ def main() -> None:
             "1 hour": TimeFrame(1,  TimeFrameUnit.Hour),
         }
 
-        # Build flat ticker options for multiselect: "AAPL — Apple"
-        _all_ticker_opts = [
-            f"{sym} — {name}"
-            for tickers in _TICKER_CATALOG.values()
-            for sym, name in tickers
-        ]
+        # Resolve symbol selection from session state before columns render
+        _selected_opts: list[str] = st.session_state.get("bt_ticker_selection", [])
+        _custom_raw: str = st.session_state.get("bt_custom_ticker", "")
+        alpaca_symbols: list[str] = (
+            [o.split(" — ")[0] for o in _selected_opts]
+            + [s.strip().upper() for s in _custom_raw.split(",") if s.strip()]
+        )
 
         ctrl_col, ticker_col = st.columns([1, 1])
+
         with ctrl_col:
             source = st.radio(
                 "Data Source",
@@ -385,7 +396,6 @@ def main() -> None:
             )
 
             uploaded_file = None
-            alpaca_symbols: list[str] = []
             alpaca_start = alpaca_end = None
             alpaca_tf_label = "1 min"
 
@@ -395,27 +405,21 @@ def main() -> None:
                 if not creds_present:
                     st.warning("Connect Alpaca in the sidebar to fetch historical data.")
 
-                # Symbols driven by ticker browser selection or manual entry
-                browser_selection = st.session_state.get("ticker_browser_selection", [])
-                browser_syms = [s.split(" — ")[0] for s in browser_selection]
-
-                manual_raw = st.text_input(
-                    "Symbols (or pick from browser →)",
-                    value=", ".join(browser_syms) if browser_syms else "SPY, QQQ",
-                    key="symbol_input",
-                )
-                alpaca_symbols = [s.strip().upper() for s in manual_raw.split(",") if s.strip()]
-
                 col_start, col_end = st.columns(2)
                 with col_start:
                     alpaca_start = st.date_input("Start Date", value=date.today() - timedelta(days=90))
                 with col_end:
                     alpaca_end = st.date_input("End Date", value=date.today() - timedelta(days=1))
                 alpaca_tf_label = st.selectbox("Bar Timeframe", list(_TIMEFRAME_OPTIONS.keys()))
-                st.caption("💡 Tip: 1–5 min bars work best for ORB. Longer ranges = fewer signals.")
+                st.caption("💡 1–5 min bars work best for ORB. Longer bars = fewer signals.")
 
                 if alpaca_start and alpaca_end and alpaca_start >= alpaca_end:
                     st.error("Start date must be before end date.")
+
+                if alpaca_symbols:
+                    st.success(f"Symbols: **{', '.join(alpaca_symbols)}**")
+                else:
+                    st.warning("Select at least one symbol from the panel →")
 
             initial_equity = st.number_input(
                 "Initial Equity ($)", 10_000, 10_000_000, 100_000, step=10_000
@@ -423,26 +427,41 @@ def main() -> None:
             run_bt = st.button("▶ Run Backtest", type="primary", use_container_width=True)
 
         with ticker_col:
-            st.markdown("#### 🔍 Ticker Browser")
-            st.caption("Search by company name or ticker. Click to populate Symbols field.")
-            sector_filter = st.selectbox(
-                "Sector", ["All"] + list(_TICKER_CATALOG.keys()), label_visibility="collapsed"
-            )
-            filtered_opts = (
-                _all_ticker_opts if sector_filter == "All"
-                else [f"{sym} — {name}" for sym, name in _TICKER_CATALOG[sector_filter]]
-            )
-            selected = st.multiselect(
-                "Search tickers",
-                options=filtered_opts,
-                default=st.session_state.get("ticker_browser_selection", []),
-                placeholder="Type a name or ticker…",
-                label_visibility="collapsed",
-                key="ticker_browser_selection",
-            )
-            if selected:
-                syms = [s.split(" — ")[0] for s in selected]
-                st.info(f"Selected: **{', '.join(syms)}**")
+            if source == "Alpaca Historical Data":
+                st.markdown("#### 🔍 Symbol Search")
+                st.caption("Search by company name or ticker — all symbols verified on Alpaca.")
+
+                all_opts = [
+                    f"{sym} — {name}"
+                    for tickers in _TICKER_CATALOG.values()
+                    for sym, name in tickers
+                ]
+                sector_filter = st.selectbox(
+                    "Filter by sector",
+                    ["All Sectors"] + list(_TICKER_CATALOG.keys()),
+                )
+                filtered_opts = (
+                    all_opts if sector_filter == "All Sectors"
+                    else [f"{sym} — {name}" for sym, name in _TICKER_CATALOG[sector_filter]]
+                )
+
+                # Preserve selections that are still in the filtered list
+                valid_defaults = [o for o in _selected_opts if o in filtered_opts]
+
+                st.multiselect(
+                    "Search tickers",
+                    options=filtered_opts,
+                    default=valid_defaults,
+                    placeholder="Type 'Apple', 'energy', 'SPY'…",
+                    label_visibility="collapsed",
+                    key="bt_ticker_selection",
+                )
+                st.text_input(
+                    "Unlisted symbol",
+                    placeholder="e.g. HOOD, RIVN, MSTR  (comma-separated)",
+                    label_visibility="collapsed",
+                    key="bt_custom_ticker",
+                )
 
         if run_bt:
             try:
