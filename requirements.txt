@@ -1,0 +1,2 @@
+# Optional convenience dependency for future data analysis.
+pandas>=2.0.0
