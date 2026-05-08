@@ -138,17 +138,17 @@ def _inject_css() -> None:
       box-shadow:0 0 0 1px var(--bd-accent) !important;
     }
     [data-testid="stMetricLabel"] > div {
-      font-family:var(--display) !important; font-size:.62rem !important;
+      font-family:var(--display) !important; font-size:.65rem !important;
       font-weight:700 !important; text-transform:uppercase !important;
-      letter-spacing:.14em !important; color:var(--t2) !important;
+      letter-spacing:.07em !important; color:var(--t2) !important;
     }
-    /* Metric value — Syne to match the rest of the app, comfortable reading size */
+    /* Metric value — Syne to match the rest of the app */
     [data-testid="stMetricValue"] > div {
-      font-family:var(--display) !important; font-size:2rem !important;
-      font-weight:700 !important; color:var(--t0) !important; letter-spacing:-.03em !important;
+      font-family:var(--display) !important; font-size:1.6rem !important;
+      font-weight:600 !important; color:var(--t0) !important; letter-spacing:-.01em !important;
     }
     [data-testid="stMetricDelta"] > div {
-      font-family:var(--display) !important; font-size:.8rem !important; font-weight:600 !important;
+      font-family:var(--display) !important; font-size:.78rem !important; font-weight:600 !important;
     }
 
     /* ── Buttons ── */
@@ -191,9 +191,10 @@ def _inject_css() -> None:
     }
     .stTextInput label, .stNumberInput label, .stSelectbox label,
     .stMultiSelect label, .stRadio > label, .stSlider label, .stDateInput label {
-      font-family:var(--display) !important; font-size:.65rem !important;
-      font-weight:700 !important; letter-spacing:.12em !important;
+      font-family:var(--display) !important; font-size:.68rem !important;
+      font-weight:700 !important; letter-spacing:.06em !important;
       text-transform:uppercase !important; color:var(--t2) !important;
+      white-space:normal !important; overflow:visible !important;
     }
 
     /* ── Select / Multi ── */
