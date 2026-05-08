@@ -11,6 +11,7 @@ from orb_trader.config import EngineConfig
 from orb_trader.models import Bar, Position, Side, Trade
 from orb_trader.risk import RiskManager
 from orb_trader.strategy import OpeningRangeBreakoutStrategy
+from orb_trader.strategy_vwap import VWAPBreakoutStrategy
 
 
 def compute_buy_and_hold(
@@ -179,7 +180,10 @@ class BacktestResult:
 class Backtester:
     def __init__(self, config: EngineConfig):
         self.config = config
-        self.strategy = OpeningRangeBreakoutStrategy(config)
+        if config.strategy_type == "vwap":
+            self.strategy = VWAPBreakoutStrategy(config)
+        else:
+            self.strategy = OpeningRangeBreakoutStrategy(config)
         self.risk = RiskManager(config)
 
     def run(self, bars: Iterable[Bar], initial_equity: float = 100_000.0) -> BacktestResult:
