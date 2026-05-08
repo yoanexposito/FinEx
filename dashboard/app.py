@@ -41,40 +41,64 @@ def _inject_css() -> None:
     <style>
     @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Syne:wght@400;500;600;700;800&display=swap');
 
-    :root {
+    /* ─────────────────────────────────────────────────────────────────────────
+       Theme-specific variables
+       Streamlit sets data-theme="dark" or data-theme="light" on <html>.
+       Removing [theme] from config.toml restores the native Settings toggle.
+    ───────────────────────────────────────────────────────────────────────── */
+    html[data-theme="dark"] {
       --bg-0:#060A12; --bg-1:#0B1120; --bg-2:#101828; --bg-3:#162033;
       --bd-dim:rgba(255,255,255,0.05); --bd-mid:rgba(255,255,255,0.10);
       --bd-accent:rgba(0,212,255,0.35);
       --t0:#EEF2F8; --t1:#8899BB; --t2:#4A5A72;
+    }
+    html[data-theme="light"] {
+      --bg-0:#F4F7FB; --bg-1:#FFFFFF; --bg-2:#EBF0F7; --bg-3:#DDE5F0;
+      --bd-dim:rgba(0,0,0,0.07); --bd-mid:rgba(0,0,0,0.13);
+      --bd-accent:rgba(0,140,200,0.40);
+      --t0:#0E1B2A; --t1:#3D5269; --t2:#7A90A8;
+    }
+    :root {
       --cyan:#00D4FF; --green:#00E676; --red:#FF4757; --amber:#FFA502;
       --mono:'IBM Plex Mono',monospace; --display:'Syne',sans-serif;
       --r:6px; --ease:0.18s cubic-bezier(.4,0,.2,1);
     }
 
     /* ── Shell ── */
-    .stApp {
+    html[data-theme="dark"] .stApp {
       background: var(--bg-0) !important;
       background-image:
         radial-gradient(ellipse 70% 50% at 5% 90%, rgba(0,80,180,.07) 0%, transparent 65%),
         radial-gradient(ellipse 55% 35% at 95% 5%, rgba(0,212,255,.04) 0%, transparent 55%);
       background-attachment: fixed;
     }
+    html[data-theme="light"] .stApp {
+      background: var(--bg-0) !important;
+    }
     .main .block-container { padding-top:1.5rem !important; max-width:1400px; }
-    * { box-sizing: border-box; }
 
     /* ── Sidebar ── */
-    [data-testid="stSidebar"] {
+    html[data-theme="dark"] [data-testid="stSidebar"] {
+      background: var(--bg-1) !important;
+      border-right: 1px solid var(--bd-dim) !important;
+    }
+    html[data-theme="light"] [data-testid="stSidebar"] {
       background: var(--bg-1) !important;
       border-right: 1px solid var(--bd-dim) !important;
     }
     [data-testid="stSidebarContent"] { padding: 1.5rem 1.25rem !important; }
 
     /* ── Typography ── */
-    h1,h2,h3,h4 { font-family:var(--display) !important; letter-spacing:-.02em !important; color:var(--t0) !important; }
+    h1,h2,h3,h4 {
+      font-family:var(--display) !important; letter-spacing:-.02em !important;
+      color:var(--t0) !important;
+    }
     h1 { font-size:1.85rem !important; font-weight:800 !important; }
     h2 { font-size:1.25rem !important; font-weight:700 !important; }
     h3 { font-size:1.05rem !important; font-weight:600 !important; }
-    p, .stMarkdown p { font-family:var(--display) !important; color:var(--t1) !important; font-size:.88rem !important; }
+    p, .stMarkdown p {
+      font-family:var(--display) !important; color:var(--t1) !important; font-size:.88rem !important;
+    }
     label, .stMarkdown label { font-family:var(--display) !important; }
     [data-testid="stCaptionContainer"] p {
       font-size:.7rem !important; color:var(--t2) !important; font-family:var(--display) !important;
@@ -118,12 +142,13 @@ def _inject_css() -> None:
       font-weight:700 !important; text-transform:uppercase !important;
       letter-spacing:.14em !important; color:var(--t2) !important;
     }
+    /* Restore metric value to a comfortable readable size */
     [data-testid="stMetricValue"] > div {
-      font-family:var(--mono) !important; font-size:1.35rem !important;
+      font-family:var(--mono) !important; font-size:1.75rem !important;
       font-weight:500 !important; color:var(--t0) !important; letter-spacing:-.02em !important;
     }
     [data-testid="stMetricDelta"] > div {
-      font-family:var(--mono) !important; font-size:.72rem !important;
+      font-family:var(--mono) !important; font-size:.78rem !important;
     }
 
     /* ── Buttons ── */
@@ -131,12 +156,10 @@ def _inject_css() -> None:
       font-family:var(--display) !important; font-weight:700 !important;
       font-size:.78rem !important; letter-spacing:.07em !important;
       text-transform:uppercase !important; border-radius:var(--r) !important;
-      padding:.52rem 1.1rem !important;
-      transition:all var(--ease) !important;
+      padding:.52rem 1.1rem !important; transition:all var(--ease) !important;
     }
     .stButton > button[kind="primary"] {
-      background:rgba(0,180,220,0.10) !important;
-      color:var(--cyan) !important;
+      background:rgba(0,180,220,0.10) !important; color:var(--cyan) !important;
       border:1px solid rgba(0,212,255,0.30) !important;
     }
     .stButton > button[kind="primary"]:hover {
@@ -178,16 +201,21 @@ def _inject_css() -> None:
       background:var(--bg-2) !important; border:1px solid var(--bd-mid) !important;
       border-radius:var(--r) !important;
     }
-    [data-baseweb="select"] span { font-family:var(--mono) !important; color:var(--t0) !important; font-size:.84rem !important; }
+    [data-baseweb="select"] span {
+      font-family:var(--mono) !important; color:var(--t0) !important; font-size:.84rem !important;
+    }
     [data-baseweb="tag"] {
       background:rgba(0,212,255,.15) !important;
-      border:1px solid rgba(0,212,255,.3) !important;
-      border-radius:3px !important;
+      border:1px solid rgba(0,212,255,.3) !important; border-radius:3px !important;
     }
-    [data-baseweb="tag"] span { font-family:var(--mono) !important; color:var(--cyan) !important; font-size:.75rem !important; }
+    [data-baseweb="tag"] span {
+      font-family:var(--mono) !important; color:var(--cyan) !important; font-size:.75rem !important;
+    }
 
     /* ── Radio ── */
-    .stRadio > div > label > div { font-family:var(--mono) !important; color:var(--t1) !important; font-size:.82rem !important; }
+    .stRadio > div > label > div {
+      font-family:var(--mono) !important; color:var(--t1) !important; font-size:.82rem !important;
+    }
 
     /* ── Date input ── */
     .stDateInput > div > div > input {
@@ -202,7 +230,9 @@ def _inject_css() -> None:
     }
 
     /* ── Toggle ── */
-    [data-testid="stToggle"] span { font-family:var(--display) !important; font-size:.84rem !important; color:var(--t1) !important; }
+    [data-testid="stToggle"] span {
+      font-family:var(--display) !important; font-size:.84rem !important; color:var(--t1) !important;
+    }
 
     /* ── Divider ── */
     hr { border-color:var(--bd-dim) !important; margin:.75rem 0 !important; }
@@ -211,7 +241,6 @@ def _inject_css() -> None:
     [data-testid="stAlert"] {
       border-radius:var(--r) !important; border-left-width:3px !important;
       font-family:var(--display) !important; font-size:.82rem !important;
-      background:rgba(255,255,255,.03) !important;
     }
 
     /* ── Expander ── */
@@ -231,9 +260,8 @@ def _inject_css() -> None:
 
     /* ── Scrollbar ── */
     ::-webkit-scrollbar { width:4px; height:4px; }
-    ::-webkit-scrollbar-track { background:var(--bg-1); }
+    html[data-theme="dark"] ::-webkit-scrollbar-track { background:var(--bg-1); }
     ::-webkit-scrollbar-thumb { background:var(--bd-mid); border-radius:2px; }
-    ::-webkit-scrollbar-thumb:hover { background:var(--t2); }
 
     /* ── Custom components ── */
     .finex-brand {
@@ -261,11 +289,6 @@ def _inject_css() -> None:
     @keyframes pulse-dot {
       0%,100% { opacity:1; transform:scale(1); }
       50%      { opacity:.5; transform:scale(.85); }
-    }
-    .section-label {
-      font-family:'Syne',sans-serif; font-size:.6rem; font-weight:700;
-      letter-spacing:.18em; text-transform:uppercase; color:var(--t2);
-      margin-bottom:.5rem; display:block;
     }
     .mode-badge {
       display:inline-block; padding:.15rem .5rem; border-radius:3px;
@@ -362,12 +385,22 @@ def _base_layout(title: str, height: int, **extra) -> dict:
 def _equity_chart(result: BacktestResult) -> go.Figure:
     dates  = [p[0] for p in result.equity_curve]
     equity = [p[1] for p in result.equity_curve]
+
+    bm_curve  = getattr(result, "benchmark_curve", [])
+    bm_equity = [p[1] for p in bm_curve] if bm_curve else []
+
+    # Tight y-axis range so fluctuations are visible (not dwarfed by zero-origin)
+    all_values = equity + bm_equity
+    y_min = min(all_values)
+    y_max = max(all_values)
+    pad   = max((y_max - y_min) * 0.08, y_max * 0.005)   # at least 0.5% of max
+    y_range = [y_min - pad, y_max + pad]
+
     fig = go.Figure()
 
-    # Buy-and-hold benchmark overlay (drawn first so it renders beneath strategy)
-    if getattr(result, "benchmark_curve", None):
-        bm_dates  = [p[0] for p in result.benchmark_curve]  # type: ignore[attr-defined]
-        bm_equity = [p[1] for p in result.benchmark_curve]  # type: ignore[attr-defined]
+    # Buy-and-hold benchmark (drawn first — renders beneath strategy fill)
+    if bm_equity:
+        bm_dates = [p[0] for p in bm_curve]
         fig.add_trace(go.Scatter(
             x=bm_dates, y=bm_equity, mode="lines", name="Buy & Hold",
             line=dict(color=_AMBER, width=1.5, dash="dash"),
@@ -380,9 +413,21 @@ def _equity_chart(result: BacktestResult) -> go.Figure:
         fill="tozeroy", fillcolor="rgba(0,230,118,0.06)",
         hovertemplate="%{x|%Y-%m-%d %H:%M}<br>ORB <b>$%{y:,.2f}</b><extra></extra>",
     ))
-    fig.update_layout(**_base_layout("EQUITY CURVE", 340,
-        yaxis=dict(tickformat="$,.0f", gridcolor="rgba(255,255,255,0.04)",
-                   tickfont=dict(family="IBM Plex Mono", color="#4A5A72", size=10))))
+
+    # Reference line at initial equity
+    fig.add_hline(
+        y=result.initial_equity,
+        line=dict(color="rgba(255,255,255,0.12)", width=1, dash="dot"),
+    )
+
+    fig.update_layout(**_base_layout("EQUITY CURVE", 360,
+        yaxis=dict(
+            tickformat="$,.0f",
+            range=y_range,
+            gridcolor="rgba(255,255,255,0.04)",
+            tickfont=dict(family="IBM Plex Mono", color="#4A5A72", size=10),
+        ),
+    ))
     return fig
 
 
