@@ -135,12 +135,15 @@ def _inject_css() -> None:
       transition:all var(--ease) !important;
     }
     .stButton > button[kind="primary"] {
-      background:linear-gradient(135deg,var(--cyan) 0%,#0077CC 100%) !important;
-      color:var(--bg-0) !important; border:none !important; font-weight:800 !important;
+      background:rgba(0,180,220,0.10) !important;
+      color:var(--cyan) !important;
+      border:1px solid rgba(0,212,255,0.30) !important;
     }
     .stButton > button[kind="primary"]:hover {
+      background:rgba(0,180,220,0.18) !important;
+      border-color:rgba(0,212,255,0.55) !important;
+      box-shadow:0 0 20px rgba(0,212,255,0.15) !important;
       transform:translateY(-1px) !important;
-      box-shadow:0 6px 22px rgba(0,212,255,.35) !important;
     }
     .stButton > button[kind="secondary"] {
       background:var(--bg-2) !important; color:var(--t1) !important;
@@ -360,11 +363,22 @@ def _equity_chart(result: BacktestResult) -> go.Figure:
     dates  = [p[0] for p in result.equity_curve]
     equity = [p[1] for p in result.equity_curve]
     fig = go.Figure()
+
+    # Buy-and-hold benchmark overlay (drawn first so it renders beneath strategy)
+    if result.benchmark_curve:
+        bm_dates  = [p[0] for p in result.benchmark_curve]
+        bm_equity = [p[1] for p in result.benchmark_curve]
+        fig.add_trace(go.Scatter(
+            x=bm_dates, y=bm_equity, mode="lines", name="Buy & Hold",
+            line=dict(color=_AMBER, width=1.5, dash="dash"),
+            hovertemplate="%{x|%Y-%m-%d %H:%M}<br>B&H <b>$%{y:,.2f}</b><extra></extra>",
+        ))
+
     fig.add_trace(go.Scatter(
-        x=dates, y=equity, mode="lines", name="Portfolio",
+        x=dates, y=equity, mode="lines", name="ORB Strategy",
         line=dict(color=_GREEN, width=2),
         fill="tozeroy", fillcolor="rgba(0,230,118,0.06)",
-        hovertemplate="%{x|%Y-%m-%d %H:%M}<br><b>$%{y:,.2f}</b><extra></extra>",
+        hovertemplate="%{x|%Y-%m-%d %H:%M}<br>ORB <b>$%{y:,.2f}</b><extra></extra>",
     ))
     fig.update_layout(**_base_layout("EQUITY CURVE", 340,
         yaxis=dict(tickformat="$,.0f", gridcolor="rgba(255,255,255,0.04)",
@@ -777,7 +791,12 @@ def main() -> None:
             # Row 1: return overview
             m1, m2, m3, m4, m5, m6 = st.columns(6)
             pnl = result.final_equity - result.initial_equity
-            m1.metric("Total Return", f"{result.total_return_pct:.2f}%", delta=f"${pnl:,.0f}")
+            alpha = result.total_return_pct - result.benchmark_return_pct
+            alpha_label = (
+                f"α {alpha:+.2f}% vs B&H ({result.benchmark_return_pct:.2f}%)"
+                if result.benchmark_curve else f"${pnl:,.0f}"
+            )
+            m1.metric("Total Return", f"{result.total_return_pct:.2f}%", delta=alpha_label)
             m2.metric("Max Drawdown", f"{result.max_drawdown_pct:.2f}%")
             m3.metric("Sharpe Ratio", f"{result.sharpe_ratio:.2f}")
             m4.metric("Profit Factor", f"{result.profit_factor:.2f}" if result.profit_factor != float('inf') else "∞")
