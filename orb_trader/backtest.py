@@ -1,5 +1,6 @@
 import csv
 import math
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
@@ -10,6 +11,50 @@ from orb_trader.config import EngineConfig
 from orb_trader.models import Bar, Position, Side, Trade
 from orb_trader.risk import RiskManager
 from orb_trader.strategy import OpeningRangeBreakoutStrategy
+
+
+def compute_buy_and_hold(
+    bars: List[Bar], initial_equity: float
+) -> Tuple[List[Tuple[datetime, float]], float]:
+    """Equal-weight buy-and-hold benchmark over the same bar set.
+
+    Returns (equity_curve, total_return_pct).
+    """
+    if not bars:
+        return [], 0.0
+
+    # First close price seen for each symbol
+    first_price: Dict[str, float] = {}
+    # Last close price seen for each symbol on each calendar day
+    daily_close: Dict[Tuple[date, str], float] = {}
+    last_ts_per_day: Dict[date, datetime] = {}
+
+    for bar in bars:
+        if bar.symbol not in first_price:
+            first_price[bar.symbol] = bar.close
+        d = bar.timestamp.date()
+        daily_close[(d, bar.symbol)] = bar.close
+        if d not in last_ts_per_day or bar.timestamp > last_ts_per_day[d]:
+            last_ts_per_day[d] = bar.timestamp
+
+    symbols = list(first_price.keys())
+    n = max(len(symbols), 1)
+    alloc = initial_equity / n
+    prev_price = dict(first_price)
+
+    curve: List[Tuple[datetime, float]] = [(bars[0].timestamp, initial_equity)]
+    for day in sorted(last_ts_per_day):
+        ts = last_ts_per_day[day]
+        value = 0.0
+        for sym in symbols:
+            price = daily_close.get((day, sym), prev_price[sym])
+            value += alloc * price / max(first_price[sym], 1e-9)
+            prev_price[sym] = price
+        curve.append((ts, value))
+
+    final_value = curve[-1][1]
+    return_pct = (final_value / initial_equity - 1.0) * 100.0
+    return curve, return_pct
 
 
 def _compute_profit_factor(trades: List[Trade]) -> float:
@@ -127,6 +172,8 @@ class BacktestResult:
     avg_trade_pnl: float
     equity_curve: List[Tuple[datetime, float]] = field(default_factory=list)
     monthly_returns: Dict[str, float] = field(default_factory=dict)
+    benchmark_curve: List[Tuple[datetime, float]] = field(default_factory=list)
+    benchmark_return_pct: float = 0.0
 
 
 class Backtester:
@@ -293,6 +340,7 @@ class Backtester:
         hold_minutes = [
             (t.exit_time - t.entry_time).total_seconds() / 60 for t in trades
         ]
+        benchmark_curve, benchmark_return_pct = compute_buy_and_hold(bars, initial_equity)
 
         return BacktestResult(
             initial_equity=initial_equity,
@@ -313,4 +361,6 @@ class Backtester:
             avg_trade_pnl=avg_trade,
             equity_curve=equity_snapshots,
             monthly_returns=_compute_monthly_returns(equity_snapshots, initial_equity),
+            benchmark_curve=benchmark_curve,
+            benchmark_return_pct=benchmark_return_pct,
         )
