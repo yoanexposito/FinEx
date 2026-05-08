@@ -365,9 +365,9 @@ def _equity_chart(result: BacktestResult) -> go.Figure:
     fig = go.Figure()
 
     # Buy-and-hold benchmark overlay (drawn first so it renders beneath strategy)
-    if result.benchmark_curve:
-        bm_dates  = [p[0] for p in result.benchmark_curve]
-        bm_equity = [p[1] for p in result.benchmark_curve]
+    if getattr(result, "benchmark_curve", None):
+        bm_dates  = [p[0] for p in result.benchmark_curve]  # type: ignore[attr-defined]
+        bm_equity = [p[1] for p in result.benchmark_curve]  # type: ignore[attr-defined]
         fig.add_trace(go.Scatter(
             x=bm_dates, y=bm_equity, mode="lines", name="Buy & Hold",
             line=dict(color=_AMBER, width=1.5, dash="dash"),
@@ -791,10 +791,12 @@ def main() -> None:
             # Row 1: return overview
             m1, m2, m3, m4, m5, m6 = st.columns(6)
             pnl = result.final_equity - result.initial_equity
-            alpha = result.total_return_pct - result.benchmark_return_pct
+            bm_return = getattr(result, "benchmark_return_pct", None)
+            bm_curve  = getattr(result, "benchmark_curve", [])
+            alpha = result.total_return_pct - bm_return if bm_return is not None else None
             alpha_label = (
-                f"α {alpha:+.2f}% vs B&H ({result.benchmark_return_pct:.2f}%)"
-                if result.benchmark_curve else f"${pnl:,.0f}"
+                f"α {alpha:+.2f}% vs B&H ({bm_return:.2f}%)"
+                if alpha is not None and bm_curve else f"${pnl:,.0f}"
             )
             m1.metric("Total Return", f"{result.total_return_pct:.2f}%", delta=alpha_label)
             m2.metric("Max Drawdown", f"{result.max_drawdown_pct:.2f}%")
