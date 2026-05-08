@@ -296,9 +296,14 @@ def _start_trader_thread(
 # ── Config builder ────────────────────────────────────────────────────────────
 
 def _build_config(
+    strategy_type: str,
     opening_range_minutes: int,
     breakout_buffer_bps: float,
     stop_loss_buffer_bps: float,
+    vwap_buffer_bps: float,
+    vwap_stop_bps: float,
+    vwap_min_warmup_bars: int,
+    vwap_entry_cutoff_hour: int,
     target_rr: float,
     risk_per_trade_pct: float,
     max_position_value_pct: float,
@@ -306,9 +311,14 @@ def _build_config(
     allow_short: bool,
 ) -> EngineConfig:
     return EngineConfig(
+        strategy_type=strategy_type,
         opening_range_minutes=opening_range_minutes,
         breakout_buffer_bps=breakout_buffer_bps,
         stop_loss_buffer_bps=stop_loss_buffer_bps,
+        vwap_buffer_bps=vwap_buffer_bps,
+        vwap_stop_bps=vwap_stop_bps,
+        vwap_min_warmup_bars=vwap_min_warmup_bars,
+        vwap_entry_cutoff_hour=vwap_entry_cutoff_hour,
         target_rr=target_rr,
         risk_per_trade_pct=risk_per_trade_pct,
         max_position_value_pct=max_position_value_pct,
@@ -379,16 +389,55 @@ def main() -> None:
         st.divider()
 
         with st.expander("⚙️ Strategy Config", expanded=False):
-            orm = st.number_input("Opening Range (min)", 1, 120, 30)
-            bbb = st.number_input("Breakout Buffer (bps)", 0.0, 50.0, 5.0)
-            slb = st.number_input("Stop Loss Buffer (bps)", 0.0, 50.0, 0.0)
+            strategy_type = st.selectbox(
+                "Strategy",
+                ["ORB — Opening Range Breakout", "VWAP — VWAP Breakout"],
+            )
+            st.divider()
+
+            if strategy_type.startswith("ORB"):
+                st.caption("**Opening Range Breakout** — builds a high/low range over the first N minutes, then trades breakouts above or below that range.")
+                orm = st.number_input("Opening Range (min)", 1, 120, 30)
+                bbb = st.number_input("Breakout Buffer (bps)", 0.0, 50.0, 5.0)
+                slb = st.number_input("Stop Loss Buffer (bps)", 0.0, 50.0, 0.0)
+                # VWAP defaults (unused)
+                vwap_buf = 5.0; vwap_stop = 20.0; vwap_warmup = 6; vwap_cutoff = 14
+            else:
+                st.caption("**VWAP Breakout** — trades crossovers of the intraday Volume-Weighted Average Price. Long when price breaks above VWAP, short when it breaks below.")
+                vwap_buf    = st.number_input("VWAP Buffer (bps)", 0.0, 50.0, 5.0,
+                                              help="How far above/below VWAP price must close to trigger entry.")
+                vwap_stop   = st.number_input("Stop Distance (bps from VWAP)", 1.0, 100.0, 20.0,
+                                              help="Stop loss placed this many bps beyond VWAP at entry.")
+                vwap_warmup = st.number_input("Warmup Bars", 1, 30, 6,
+                                              help="Bars to skip after open before first allowed entry.")
+                vwap_cutoff = st.number_input("Entry Cutoff (hour, 24h ET)", 10, 15, 14,
+                                              help="No new entries after this hour. Avoids low-liquidity afternoon chop.")
+                # ORB defaults (unused)
+                orm = 30; bbb = 5.0; slb = 0.0
+
+            st.divider()
+            st.caption("**Risk Management** — applies to both strategies.")
             rr  = st.number_input("Target R:R", 0.0, 10.0, 1.5)
             rpt = st.number_input("Risk per Trade (%)", 0.1, 5.0, 0.5) / 100
             mpp = st.number_input("Max Position Size (%)", 1.0, 50.0, 20.0) / 100
             mdl = st.number_input("Max Daily Loss (%)", 0.1, 10.0, 2.0) / 100
             allow_short = st.checkbox("Allow Short", value=False)
 
-        config = _build_config(orm, bbb, slb, rr, rpt, mpp, mdl, allow_short)
+        config = _build_config(
+            strategy_type="orb" if strategy_type.startswith("ORB") else "vwap",
+            opening_range_minutes=int(orm),
+            breakout_buffer_bps=bbb,
+            stop_loss_buffer_bps=slb,
+            vwap_buffer_bps=vwap_buf,
+            vwap_stop_bps=vwap_stop,
+            vwap_min_warmup_bars=int(vwap_warmup),
+            vwap_entry_cutoff_hour=int(vwap_cutoff),
+            target_rr=rr,
+            risk_per_trade_pct=rpt,
+            max_position_value_pct=mpp,
+            max_daily_loss_pct=mdl,
+            allow_short=allow_short,
+        )
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
     tab_bt, tab_live = st.tabs(["📊 Backtest", "⚡ Live Trading"])
@@ -482,10 +531,10 @@ def main() -> None:
                     label_visibility="collapsed",
                     key="bt_ticker_selection",
                 )
+                st.caption("🔎 Can't find your ticker above? Enter it directly here:")
                 st.text_input(
-                    "Unlisted symbol",
-                    placeholder="e.g. HOOD, RIVN, MSTR  (comma-separated)",
-                    label_visibility="collapsed",
+                    "Ticker not in the list above (comma-separated)",
+                    placeholder="e.g. HOOD, RIVN, MSTR",
                     key="bt_custom_ticker",
                 )
 
