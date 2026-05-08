@@ -1,2 +1,1 @@
-# Streamlit server config — no [theme] block here so the native
-# light / dark toggle in the Settings menu remains available.
+# No theme overrides — Streamlit native light/dark toggle remains available.
