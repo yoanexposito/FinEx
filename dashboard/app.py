@@ -25,8 +25,254 @@ from orb_trader.live import LiveTrader
 from orb_trader.models import Side
 
 _SAMPLE_CSV = Path(__file__).parent.parent / "data" / "sample.csv"
-_GREEN = "#00C805"
-_RED = "#FF3B30"
+_GREEN  = "#00E676"
+_RED    = "#FF4757"
+_CYAN   = "#00D4FF"
+_AMBER  = "#FFA502"
+_BG0    = "#060A12"
+_BG1    = "#0B1120"
+_BG2    = "#101828"
+_TEXT0  = "#EEF2F8"
+_TEXT1  = "#8899BB"
+
+
+def _inject_css() -> None:
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Syne:wght@400;500;600;700;800&display=swap');
+
+    :root {
+      --bg-0:#060A12; --bg-1:#0B1120; --bg-2:#101828; --bg-3:#162033;
+      --bd-dim:rgba(255,255,255,0.05); --bd-mid:rgba(255,255,255,0.10);
+      --bd-accent:rgba(0,212,255,0.35);
+      --t0:#EEF2F8; --t1:#8899BB; --t2:#4A5A72;
+      --cyan:#00D4FF; --green:#00E676; --red:#FF4757; --amber:#FFA502;
+      --mono:'IBM Plex Mono',monospace; --display:'Syne',sans-serif;
+      --r:6px; --ease:0.18s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ── Shell ── */
+    .stApp {
+      background: var(--bg-0) !important;
+      background-image:
+        radial-gradient(ellipse 70% 50% at 5% 90%, rgba(0,80,180,.07) 0%, transparent 65%),
+        radial-gradient(ellipse 55% 35% at 95% 5%, rgba(0,212,255,.04) 0%, transparent 55%);
+      background-attachment: fixed;
+    }
+    .main .block-container { padding-top:1.5rem !important; max-width:1400px; }
+    * { box-sizing: border-box; }
+
+    /* ── Sidebar ── */
+    [data-testid="stSidebar"] {
+      background: var(--bg-1) !important;
+      border-right: 1px solid var(--bd-dim) !important;
+    }
+    [data-testid="stSidebarContent"] { padding: 1.5rem 1.25rem !important; }
+
+    /* ── Typography ── */
+    h1,h2,h3,h4 { font-family:var(--display) !important; letter-spacing:-.02em !important; color:var(--t0) !important; }
+    h1 { font-size:1.85rem !important; font-weight:800 !important; }
+    h2 { font-size:1.25rem !important; font-weight:700 !important; }
+    h3 { font-size:1.05rem !important; font-weight:600 !important; }
+    p, .stMarkdown p { font-family:var(--display) !important; color:var(--t1) !important; font-size:.88rem !important; }
+    label, .stMarkdown label { font-family:var(--display) !important; }
+    [data-testid="stCaptionContainer"] p {
+      font-size:.7rem !important; color:var(--t2) !important; font-family:var(--display) !important;
+    }
+
+    /* ── Tabs ── */
+    .stTabs [data-baseweb="tab-list"] {
+      background:transparent !important;
+      border-bottom:1px solid var(--bd-dim) !important;
+      gap:0 !important; padding-bottom:0 !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+      font-family:var(--display) !important; font-weight:600 !important;
+      font-size:.78rem !important; letter-spacing:.08em !important;
+      text-transform:uppercase !important; color:var(--t2) !important;
+      background:transparent !important; border:none !important;
+      border-bottom:2px solid transparent !important;
+      padding:.7rem 1.4rem !important;
+      transition:color var(--ease), border-color var(--ease) !important;
+    }
+    .stTabs [data-baseweb="tab"]:hover { color:var(--t1) !important; }
+    .stTabs [aria-selected="true"] {
+      color:var(--cyan) !important;
+      border-bottom-color:var(--cyan) !important;
+      background:transparent !important;
+    }
+    .stTabs [data-baseweb="tab-panel"] { background:transparent !important; padding-top:1.5rem !important; }
+
+    /* ── Metric cards ── */
+    [data-testid="metric-container"] {
+      background:var(--bg-2) !important; border:1px solid var(--bd-dim) !important;
+      border-radius:var(--r) !important; padding:1rem 1.1rem !important;
+      transition:background var(--ease), border-color var(--ease), box-shadow var(--ease) !important;
+    }
+    [data-testid="metric-container"]:hover {
+      background:var(--bg-3) !important; border-color:var(--bd-mid) !important;
+      box-shadow:0 0 0 1px var(--bd-accent) !important;
+    }
+    [data-testid="stMetricLabel"] > div {
+      font-family:var(--display) !important; font-size:.62rem !important;
+      font-weight:700 !important; text-transform:uppercase !important;
+      letter-spacing:.14em !important; color:var(--t2) !important;
+    }
+    [data-testid="stMetricValue"] > div {
+      font-family:var(--mono) !important; font-size:1.35rem !important;
+      font-weight:500 !important; color:var(--t0) !important; letter-spacing:-.02em !important;
+    }
+    [data-testid="stMetricDelta"] > div {
+      font-family:var(--mono) !important; font-size:.72rem !important;
+    }
+
+    /* ── Buttons ── */
+    .stButton > button {
+      font-family:var(--display) !important; font-weight:700 !important;
+      font-size:.78rem !important; letter-spacing:.07em !important;
+      text-transform:uppercase !important; border-radius:var(--r) !important;
+      padding:.52rem 1.1rem !important;
+      transition:all var(--ease) !important;
+    }
+    .stButton > button[kind="primary"] {
+      background:linear-gradient(135deg,var(--cyan) 0%,#0077CC 100%) !important;
+      color:var(--bg-0) !important; border:none !important; font-weight:800 !important;
+    }
+    .stButton > button[kind="primary"]:hover {
+      transform:translateY(-1px) !important;
+      box-shadow:0 6px 22px rgba(0,212,255,.35) !important;
+    }
+    .stButton > button[kind="secondary"] {
+      background:var(--bg-2) !important; color:var(--t1) !important;
+      border:1px solid var(--bd-mid) !important;
+    }
+    .stButton > button[kind="secondary"]:hover {
+      background:var(--bg-3) !important; color:var(--t0) !important;
+      border-color:var(--bd-accent) !important;
+    }
+
+    /* ── Inputs ── */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input {
+      background:var(--bg-2) !important; border:1px solid var(--bd-mid) !important;
+      border-radius:var(--r) !important; color:var(--t0) !important;
+      font-family:var(--mono) !important; font-size:.84rem !important;
+    }
+    .stTextInput > div > div > input:focus,
+    .stNumberInput > div > div > input:focus {
+      border-color:var(--cyan) !important;
+      box-shadow:0 0 0 3px rgba(0,212,255,.12) !important;
+    }
+    .stTextInput label, .stNumberInput label, .stSelectbox label,
+    .stMultiSelect label, .stRadio > label, .stSlider label, .stDateInput label {
+      font-family:var(--display) !important; font-size:.65rem !important;
+      font-weight:700 !important; letter-spacing:.12em !important;
+      text-transform:uppercase !important; color:var(--t2) !important;
+    }
+
+    /* ── Select / Multi ── */
+    [data-baseweb="select"] > div {
+      background:var(--bg-2) !important; border:1px solid var(--bd-mid) !important;
+      border-radius:var(--r) !important;
+    }
+    [data-baseweb="select"] span { font-family:var(--mono) !important; color:var(--t0) !important; font-size:.84rem !important; }
+    [data-baseweb="tag"] {
+      background:rgba(0,212,255,.15) !important;
+      border:1px solid rgba(0,212,255,.3) !important;
+      border-radius:3px !important;
+    }
+    [data-baseweb="tag"] span { font-family:var(--mono) !important; color:var(--cyan) !important; font-size:.75rem !important; }
+
+    /* ── Radio ── */
+    .stRadio > div > label > div { font-family:var(--mono) !important; color:var(--t1) !important; font-size:.82rem !important; }
+
+    /* ── Date input ── */
+    .stDateInput > div > div > input {
+      background:var(--bg-2) !important; border:1px solid var(--bd-mid) !important;
+      border-radius:var(--r) !important; color:var(--t0) !important;
+      font-family:var(--mono) !important;
+    }
+
+    /* ── Slider ── */
+    [data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] {
+      background:var(--cyan) !important;
+    }
+
+    /* ── Toggle ── */
+    [data-testid="stToggle"] span { font-family:var(--display) !important; font-size:.84rem !important; color:var(--t1) !important; }
+
+    /* ── Divider ── */
+    hr { border-color:var(--bd-dim) !important; margin:.75rem 0 !important; }
+
+    /* ── Alerts ── */
+    [data-testid="stAlert"] {
+      border-radius:var(--r) !important; border-left-width:3px !important;
+      font-family:var(--display) !important; font-size:.82rem !important;
+      background:rgba(255,255,255,.03) !important;
+    }
+
+    /* ── Expander ── */
+    [data-testid="stExpander"] {
+      border:1px solid var(--bd-dim) !important;
+      border-radius:var(--r) !important; background:var(--bg-2) !important;
+    }
+    [data-testid="stExpander"] summary {
+      font-family:var(--display) !important; font-weight:600 !important;
+      color:var(--t1) !important; font-size:.83rem !important; letter-spacing:.02em !important;
+    }
+
+    /* ── Dataframe ── */
+    [data-testid="stDataFrame"], [data-testid="stDataFrameResizable"] {
+      border:1px solid var(--bd-dim) !important; border-radius:var(--r) !important;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width:4px; height:4px; }
+    ::-webkit-scrollbar-track { background:var(--bg-1); }
+    ::-webkit-scrollbar-thumb { background:var(--bd-mid); border-radius:2px; }
+    ::-webkit-scrollbar-thumb:hover { background:var(--t2); }
+
+    /* ── Custom components ── */
+    .finex-brand {
+      font-family:'Syne',sans-serif; font-size:1.6rem; font-weight:800;
+      letter-spacing:-.04em; line-height:1;
+      background:linear-gradient(135deg,#00D4FF 0%,#0077FF 55%,#00E676 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    .finex-sub {
+      font-family:'Syne',sans-serif; font-size:.6rem; font-weight:700;
+      letter-spacing:.22em; text-transform:uppercase; color:var(--t2); margin-top:.2rem;
+    }
+    .status-row {
+      display:flex; align-items:center; gap:.5rem;
+      font-family:'Syne',sans-serif; font-size:.75rem; font-weight:600;
+      color:var(--t1); margin:.6rem 0;
+    }
+    .dot {
+      width:7px; height:7px; border-radius:50%; flex-shrink:0;
+      animation:pulse-dot 2.4s ease-in-out infinite;
+    }
+    .dot-green { background:var(--green); box-shadow:0 0 6px var(--green); }
+    .dot-red   { background:var(--red);   box-shadow:0 0 6px var(--red); }
+    .dot-amber { background:var(--amber); box-shadow:0 0 6px var(--amber); }
+    @keyframes pulse-dot {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:.5; transform:scale(.85); }
+    }
+    .section-label {
+      font-family:'Syne',sans-serif; font-size:.6rem; font-weight:700;
+      letter-spacing:.18em; text-transform:uppercase; color:var(--t2);
+      margin-bottom:.5rem; display:block;
+    }
+    .mode-badge {
+      display:inline-block; padding:.15rem .5rem; border-radius:3px;
+      font-family:'IBM Plex Mono',monospace; font-size:.65rem; font-weight:600;
+      letter-spacing:.06em; text-transform:uppercase;
+    }
+    .mode-paper { background:rgba(255,165,2,.12); color:var(--amber); border:1px solid rgba(255,165,2,.3); }
+    .mode-live  { background:rgba(255,71,87,.12);  color:var(--red);   border:1px solid rgba(255,71,87,.3); }
+    </style>
+    """, unsafe_allow_html=True)
 
 # ── Ticker catalog ────────────────────────────────────────────────────────────
 # All symbols verified available on Alpaca IEX feed.
@@ -78,60 +324,90 @@ _TICKER_CATALOG: dict[str, list[tuple[str, str]]] = {
 
 # ── Chart builders ────────────────────────────────────────────────────────────
 
+def _base_layout(title: str, height: int, **extra) -> dict:
+    """Shared dark theme for all Plotly charts."""
+    axis = dict(
+        gridcolor="rgba(255,255,255,0.04)",
+        zerolinecolor="rgba(255,255,255,0.08)",
+        tickfont=dict(family="IBM Plex Mono", color="#4A5A72", size=10),
+        linecolor="rgba(255,255,255,0.05)",
+    )
+    layout = dict(
+        title=dict(text=title, font=dict(family="Syne", color="#8899BB", size=12), x=0),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(10,16,30,0.5)",
+        font=dict(family="IBM Plex Mono", color="#4A5A72", size=10),
+        xaxis={**axis},
+        yaxis={**axis},
+        height=height,
+        margin=dict(l=0, r=0, t=36, b=0),
+        hovermode="x unified",
+        hoverlabel=dict(
+            bgcolor="#0B1120",
+            bordercolor="rgba(0,212,255,0.4)",
+            font=dict(family="IBM Plex Mono", color="#EEF2F8", size=11),
+        ),
+        legend=dict(
+            font=dict(family="IBM Plex Mono", color="#8899BB", size=10),
+            bgcolor="rgba(0,0,0,0)",
+        ),
+    )
+    layout.update(extra)
+    return layout
+
+
 def _equity_chart(result: BacktestResult) -> go.Figure:
-    dates = [p[0] for p in result.equity_curve]
+    dates  = [p[0] for p in result.equity_curve]
     equity = [p[1] for p in result.equity_curve]
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=dates, y=equity,
-        mode="lines",
-        name="Portfolio",
+        x=dates, y=equity, mode="lines", name="Portfolio",
         line=dict(color=_GREEN, width=2),
-        fill="tozeroy",
-        fillcolor="rgba(0,200,5,0.07)",
+        fill="tozeroy", fillcolor="rgba(0,230,118,0.06)",
         hovertemplate="%{x|%Y-%m-%d %H:%M}<br><b>$%{y:,.2f}</b><extra></extra>",
     ))
-    fig.update_layout(
-        title="Equity Curve",
-        xaxis_title=None,
-        yaxis=dict(tickformat="$,.0f"),
-        height=360,
-        margin=dict(l=0, r=0, t=36, b=0),
-        hovermode="x unified",
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-    )
+    fig.update_layout(**_base_layout("EQUITY CURVE", 340,
+        yaxis=dict(tickformat="$,.0f", gridcolor="rgba(255,255,255,0.04)",
+                   tickfont=dict(family="IBM Plex Mono", color="#4A5A72", size=10))))
     return fig
 
 
 def _drawdown_chart(result: BacktestResult) -> go.Figure:
     equity = [p[1] for p in result.equity_curve]
-    dates = [p[0] for p in result.equity_curve]
-    peak = equity[0]
-    drawdowns = []
+    dates  = [p[0] for p in result.equity_curve]
+    peak, drawdowns = equity[0], []
     for eq in equity:
         peak = max(peak, eq)
         drawdowns.append((eq - peak) / peak * 100)
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=dates, y=drawdowns,
-        mode="lines",
-        name="Drawdown",
+        x=dates, y=drawdowns, mode="lines", name="Drawdown",
         line=dict(color=_RED, width=1.5),
-        fill="tozeroy",
-        fillcolor="rgba(255,59,48,0.12)",
+        fill="tozeroy", fillcolor="rgba(255,71,87,0.10)",
         hovertemplate="%{x|%Y-%m-%d %H:%M}<br><b>%{y:.2f}%</b><extra></extra>",
     ))
-    fig.update_layout(
-        title="Drawdown",
-        xaxis_title=None,
-        yaxis=dict(tickformat=".1f", ticksuffix="%"),
-        height=260,
-        margin=dict(l=0, r=0, t=36, b=0),
-        hovermode="x unified",
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-    )
+    fig.update_layout(**_base_layout("DRAWDOWN", 240,
+        yaxis=dict(tickformat=".1f", ticksuffix="%", gridcolor="rgba(255,255,255,0.04)",
+                   tickfont=dict(family="IBM Plex Mono", color="#4A5A72", size=10))))
+    return fig
+
+
+def _pnl_bar_chart(result: BacktestResult) -> go.Figure:
+    pnls   = [t.net_pnl for t in result.trades]
+    colors = [_GREEN if p > 0 else _RED for p in pnls]
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=list(range(1, len(pnls) + 1)), y=pnls,
+        marker=dict(color=colors, line=dict(width=0)),
+        hovertemplate="Trade %{x}<br><b>$%{y:,.2f}</b><extra></extra>",
+    ))
+    fig.add_hline(y=0, line_color="rgba(255,255,255,0.12)", line_width=1)
+    fig.update_layout(**_base_layout("TRADE P&L", 240,
+        xaxis=dict(title="Trade #", tickfont=dict(family="IBM Plex Mono", color="#4A5A72", size=10),
+                   gridcolor="rgba(255,255,255,0.04)"),
+        yaxis=dict(tickformat="$,.0f", gridcolor="rgba(255,255,255,0.04)",
+                   tickfont=dict(family="IBM Plex Mono", color="#4A5A72", size=10)),
+        showlegend=False))
     return fig
 
 
@@ -143,50 +419,32 @@ def _monthly_heatmap(monthly_returns: dict) -> go.Figure:
         year_data.setdefault(y, {})[m] = ret
     years = sorted(year_data)
     month_names = [calendar.month_abbr[m] for m in range(1, 13)]
-    z = [[year_data[y].get(m) for m in range(1, 13)] for y in years]
+    z    = [[year_data[y].get(m) for m in range(1, 13)] for y in years]
     text = [[f"{v:.1f}%" if v is not None else "" for v in row] for row in z]
+    colorscale = [
+        [0.0,  _RED],
+        [0.45, "rgba(255,71,87,0.15)"],
+        [0.5,  "rgba(255,255,255,0.05)"],
+        [0.55, "rgba(0,230,118,0.15)"],
+        [1.0,  _GREEN],
+    ]
     fig = go.Figure(go.Heatmap(
-        z=z,
-        x=month_names,
-        y=[str(y) for y in years],
-        colorscale=[[0, _RED], [0.5, "#f5f5f5"], [1, _GREEN]],
-        zmid=0,
-        text=text,
-        texttemplate="%{text}",
+        z=z, x=month_names, y=[str(y) for y in years],
+        colorscale=colorscale, zmid=0,
+        text=text, texttemplate="%{text}",
+        textfont=dict(family="IBM Plex Mono", size=11),
         showscale=True,
+        colorbar=dict(
+            tickfont=dict(family="IBM Plex Mono", color="#8899BB", size=9),
+            outlinecolor="rgba(0,0,0,0)", thickness=8,
+        ),
         hovertemplate="%{y} %{x}: <b>%{z:.2f}%</b><extra></extra>",
     ))
-    fig.update_layout(
-        title="Monthly Returns (%)",
-        height=max(220, 80 * len(years) + 120),
-        margin=dict(l=0, r=0, t=36, b=0),
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-    )
-    return fig
-
-
-def _pnl_bar_chart(result: BacktestResult) -> go.Figure:
-    pnls = [t.net_pnl for t in result.trades]
-    colors = [_GREEN if p > 0 else _RED for p in pnls]
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=list(range(1, len(pnls) + 1)),
-        y=pnls,
-        marker_color=colors,
-        hovertemplate="Trade %{x}<br><b>$%{y:,.2f}</b><extra></extra>",
-    ))
-    fig.add_hline(y=0, line_color="gray", line_width=0.8)
-    fig.update_layout(
-        title="Trade P&L",
-        xaxis_title="Trade #",
-        yaxis=dict(tickformat="$,.0f"),
-        height=260,
-        margin=dict(l=0, r=0, t=36, b=0),
-        showlegend=False,
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-    )
+    fig.update_layout(**_base_layout("MONTHLY RETURNS", max(200, 80 * len(years) + 100),
+        xaxis=dict(tickfont=dict(family="IBM Plex Mono", color="#8899BB", size=11),
+                   gridcolor="rgba(0,0,0,0)"),
+        yaxis=dict(tickfont=dict(family="IBM Plex Mono", color="#8899BB", size=11),
+                   gridcolor="rgba(0,0,0,0)")))
     return fig
 
 
@@ -299,6 +557,7 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="expanded",
     )
+    _inject_css()
 
     # Load credentials from environment — never from the UI
     api_key = os.environ.get("ALPACA_API_KEY", "")
@@ -328,20 +587,29 @@ def main() -> None:
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
     with st.sidebar:
-        st.markdown("## 📈 FinEx")
-        st.caption("Algorithmic Trading Engine")
+        st.markdown(
+            '<div class="finex-brand">FinEx</div>'
+            '<div class="finex-sub">Algorithmic Trading Engine</div>',
+            unsafe_allow_html=True,
+        )
         st.divider()
 
-        st.markdown("### 🔗 Alpaca Connection")
+        # Connection status
         if not creds_present:
-            st.warning(
-                "Credentials not found. Set `ALPACA_API_KEY` and "
-                "`ALPACA_SECRET_KEY` in your `.env` file and restart."
+            st.markdown(
+                '<div class="status-row"><span class="dot dot-red"></span>No credentials — set <code>ALPACA_API_KEY</code> and <code>ALPACA_SECRET_KEY</code> in <code>.env</code></div>',
+                unsafe_allow_html=True,
             )
         elif st.session_state.connected:
-            st.success("Connected")
+            st.markdown(
+                '<div class="status-row"><span class="dot dot-green"></span>Alpaca connected</div>',
+                unsafe_allow_html=True,
+            )
         else:
-            st.error("Credentials found but connection failed.")
+            st.markdown(
+                '<div class="status-row"><span class="dot dot-amber"></span>Credentials found — connection failed</div>',
+                unsafe_allow_html=True,
+            )
 
         paper_mode = st.toggle("Paper Trading", value=st.session_state.paper)
         if paper_mode != st.session_state.paper:
@@ -582,8 +850,9 @@ def main() -> None:
         except Exception as exc:
             st.error(f"Could not fetch account data: {exc}")
 
-        mode_label = "🟡 Paper Trading" if st.session_state.paper else "🔴 Live Trading"
-        st.caption(mode_label)
+        badge_cls = "mode-paper" if st.session_state.paper else "mode-live"
+        badge_txt = "Paper Trading" if st.session_state.paper else "⚠ Live Trading"
+        st.markdown(f'<span class="mode-badge {badge_cls}">{badge_txt}</span>', unsafe_allow_html=True)
         st.divider()
 
         ctrl_col, pos_col = st.columns([1, 2])
