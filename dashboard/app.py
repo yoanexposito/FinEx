@@ -142,13 +142,13 @@ def _inject_css() -> None:
       font-weight:700 !important; text-transform:uppercase !important;
       letter-spacing:.14em !important; color:var(--t2) !important;
     }
-    /* Restore metric value to a comfortable readable size */
+    /* Metric value — Syne to match the rest of the app, comfortable reading size */
     [data-testid="stMetricValue"] > div {
-      font-family:var(--mono) !important; font-size:1.75rem !important;
-      font-weight:500 !important; color:var(--t0) !important; letter-spacing:-.02em !important;
+      font-family:var(--display) !important; font-size:2rem !important;
+      font-weight:700 !important; color:var(--t0) !important; letter-spacing:-.03em !important;
     }
     [data-testid="stMetricDelta"] > div {
-      font-family:var(--mono) !important; font-size:.78rem !important;
+      font-family:var(--display) !important; font-size:.8rem !important; font-weight:600 !important;
     }
 
     /* ── Buttons ── */
@@ -351,18 +351,18 @@ _TICKER_CATALOG: dict[str, list[tuple[str, str]]] = {
 # ── Chart builders ────────────────────────────────────────────────────────────
 
 def _base_layout(title: str, height: int, **extra) -> dict:
-    """Shared dark theme for all Plotly charts."""
+    """Shared chart layout — transparent backgrounds so light & dark both look clean."""
     axis = dict(
-        gridcolor="rgba(255,255,255,0.04)",
-        zerolinecolor="rgba(255,255,255,0.08)",
-        tickfont=dict(family="IBM Plex Mono", color="#4A5A72", size=10),
-        linecolor="rgba(255,255,255,0.05)",
+        gridcolor="rgba(128,128,128,0.15)",   # visible on both white and dark bg
+        zerolinecolor="rgba(128,128,128,0.30)",
+        tickfont=dict(family="IBM Plex Mono", color="#7A90A8", size=10),
+        linecolor="rgba(128,128,128,0.15)",
     )
     layout = dict(
-        title=dict(text=title, font=dict(family="Syne", color="#8899BB", size=12), x=0),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(10,16,30,0.5)",
-        font=dict(family="IBM Plex Mono", color="#4A5A72", size=10),
+        title=dict(text=title, font=dict(family="Syne", color="#7A90A8", size=12), x=0),
+        paper_bgcolor="rgba(0,0,0,0)",   # transparent — inherits Streamlit page bg
+        plot_bgcolor="rgba(0,0,0,0)",    # transparent — white in light, dark in dark
+        font=dict(family="IBM Plex Mono", color="#7A90A8", size=10),
         xaxis={**axis},
         yaxis={**axis},
         height=height,
@@ -421,12 +421,7 @@ def _equity_chart(result: BacktestResult) -> go.Figure:
     )
 
     fig.update_layout(**_base_layout("EQUITY CURVE", 360,
-        yaxis=dict(
-            tickformat="$,.0f",
-            range=y_range,
-            gridcolor="rgba(255,255,255,0.04)",
-            tickfont=dict(family="IBM Plex Mono", color="#4A5A72", size=10),
-        ),
+        yaxis=dict(tickformat="$,.0f", range=y_range),
     ))
     return fig
 
@@ -446,8 +441,7 @@ def _drawdown_chart(result: BacktestResult) -> go.Figure:
         hovertemplate="%{x|%Y-%m-%d %H:%M}<br><b>%{y:.2f}%</b><extra></extra>",
     ))
     fig.update_layout(**_base_layout("DRAWDOWN", 240,
-        yaxis=dict(tickformat=".1f", ticksuffix="%", gridcolor="rgba(255,255,255,0.04)",
-                   tickfont=dict(family="IBM Plex Mono", color="#4A5A72", size=10))))
+        yaxis=dict(tickformat=".1f", ticksuffix="%")))
     return fig
 
 
@@ -462,10 +456,8 @@ def _pnl_bar_chart(result: BacktestResult) -> go.Figure:
     ))
     fig.add_hline(y=0, line_color="rgba(255,255,255,0.12)", line_width=1)
     fig.update_layout(**_base_layout("TRADE P&L", 240,
-        xaxis=dict(title="Trade #", tickfont=dict(family="IBM Plex Mono", color="#4A5A72", size=10),
-                   gridcolor="rgba(255,255,255,0.04)"),
-        yaxis=dict(tickformat="$,.0f", gridcolor="rgba(255,255,255,0.04)",
-                   tickfont=dict(family="IBM Plex Mono", color="#4A5A72", size=10)),
+        xaxis=dict(title="Trade #"),
+        yaxis=dict(tickformat="$,.0f"),
         showlegend=False))
     return fig
 
@@ -500,10 +492,8 @@ def _monthly_heatmap(monthly_returns: dict) -> go.Figure:
         hovertemplate="%{y} %{x}: <b>%{z:.2f}%</b><extra></extra>",
     ))
     fig.update_layout(**_base_layout("MONTHLY RETURNS", max(200, 80 * len(years) + 100),
-        xaxis=dict(tickfont=dict(family="IBM Plex Mono", color="#8899BB", size=11),
-                   gridcolor="rgba(0,0,0,0)"),
-        yaxis=dict(tickfont=dict(family="IBM Plex Mono", color="#8899BB", size=11),
-                   gridcolor="rgba(0,0,0,0)")))
+        xaxis=dict(gridcolor="rgba(0,0,0,0)"),
+        yaxis=dict(gridcolor="rgba(0,0,0,0)")))
     return fig
 
 
