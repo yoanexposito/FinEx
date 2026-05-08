@@ -1,7 +1,2 @@
-[theme]
-base                  = "dark"
-backgroundColor       = "#060A12"
-secondaryBackgroundColor = "#0B1120"
-textColor             = "#EEF2F8"
-primaryColor          = "#00D4FF"
-font                  = "sans serif"
+# Streamlit server config — no [theme] block here so the native
+# light / dark toggle in the Settings menu remains available.
